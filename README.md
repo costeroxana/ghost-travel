@@ -19,9 +19,10 @@ Requires a Node version compatible with Expo SDK 57 (Node 22.13 or newer).
 
 ```powershell
 npm ci
-Copy-Item .env.example .env
 npx expo start --go
 ```
+
+The committed `.env` files contain configuration placeholders only. Add credentials locally and do not commit them.
 
 `EXPO_PUBLIC_API_URL` is the Python backend base URL, without `/api/itinerary`.
 For web on the same computer, use `http://localhost:5000`. For a physical phone,
@@ -41,7 +42,6 @@ The complete backend source is in `backend/`. Python 3.12 is the tested version.
 cd backend
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
 ```
 
 Set `OPENAI_API_KEY` in `backend/.env`, then start the local development server:
