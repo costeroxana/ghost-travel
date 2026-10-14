@@ -1,6 +1,6 @@
 # Ghost Travel
 
-An Expo / React Native travel planner with a Flask and CrewAI backend.
+A travel planner for Android, iOS, and web, built with Expo and React Native, powered by a Flask and CrewAI backend.
 
 ## Features
 
