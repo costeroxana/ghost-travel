@@ -1,5 +1,7 @@
 # Ghost Travel
 
+<p align="center"><img src="assets/brand/ghost-travel-github-icon.png" alt="Ghost Travel logo" width="160" /></p>
+
 A travel planner for Android, iOS, and web, built with Expo and React Native, powered by a Flask and CrewAI backend.
 
 ## Features
