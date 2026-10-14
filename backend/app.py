@@ -14,14 +14,14 @@ from crewai import Agent, Task, Crew, Process
 from itinerary_cache import read_itinerary, request_key, save_itinerary
 from destination_photos import destination_photo, destination_photos
 
-# 1. Încărcăm cheia API din fișierul .env
+# 1. Load environment settings from .env.
 load_dotenv()
 
-print("🧠 Inițializare Ghost Travel Agent...")
+print("🧠 Initializing Ghost Travel Agent...")
 
-# 2. DEFINIREA AGENȚILOR (Cine sunt și ce rol au)
+# 2. Define the agents and their roles.
 
-# Agentul 1: Expertul în Zboruri
+# Agent 1: Flight logistics expert.
 flight_hunter = Agent(
     role='Flight Logistics Expert',
     goal='Find the most efficient and cost-effective flight routes.',
@@ -32,7 +32,7 @@ flight_hunter = Agent(
     allow_delegation=False
 )
 
-# Agentul 2: Ghidul Local
+# Agent 2: Local guide.
 local_explorer = Agent(
     role='Alternative Local Guide',
     goal='Discover authentic, non-touristy attractions and local culinary spots.',
@@ -43,7 +43,7 @@ local_explorer = Agent(
     allow_delegation=False
 )
 
-# Agentul 3: Coordonatorul/Managerul de Itinerariu
+# Agent 3: Itinerary coordinator.
 chief_concierge = Agent(
     role='Chief Travel Coordinator',
     goal='Assemble flights and local spots into a perfectly timed, budget-friendly daily itinerary.',
@@ -51,13 +51,13 @@ chief_concierge = Agent(
     and attraction lists, check the traveler\'s budget, and structure a realistic
     day-by-day plan ensuring locations are geographically close to minimize travel time.''',
     verbose=True,
-    allow_delegation=True # Acest agent poate pune întrebări celorlalți dacă are nevoie de clarificări
+    allow_delegation=True # This agent can ask the other agents for clarification.
 )
 
 
-# 3. DEFINIREA SARCINILOR (Ce trebuie să facă fiecare)
+# 3. Define the tasks for each agent.
 
-# Introducem datele de test pentru călătorie
+# Default trip settings for clients that do not specify a route.
 destination = "Rome, Italy"
 origin = "Bucharest, Romania"
 budget = "300 EUR"
@@ -103,27 +103,27 @@ task_create_itinerary = Task(
 )
 
 
-# 4. ASAMBLAREA ECHIPEI (The Crew)
+# 4. Assemble the crew.
 travel_crew = Crew(
     agents=[flight_hunter, local_explorer, chief_concierge],
     tasks=[task_find_flights, task_find_local_spots, task_create_itinerary],
-    process=Process.sequential, # Sarcinile se execută pe rând, una după alta
+    process=Process.sequential, # Run the tasks sequentially.
     verbose=True
 )
 
-# # 5. PORNIREA AGENTULUI
-# print("🚀 Agenții au început să colaboreze... Te rog așteaptă.")
+# Optional standalone generation example.
+# print("🚀 The agents have started working together. Please wait.")
 # result = travel_crew.kickoff()
 
 # print("\n#############################################")
-# print("🎯 ITINERARIUL TĂU FINAL DE LA GHOST AGENT:")
+# print("🎯 YOUR FINAL ITINERARY FROM GHOST AGENT:")
 # print("#############################################\n")
 # print(result)
 
 
-# 5. CONEXIUNEA CU APLICAȚIA REACT NATIVE (Adăugarea Flask)
+# 5. Expose the backend API for the React Native app.
 app = Flask(__name__)
-CORS(app) # Permite aplicației tale de mobil/web să acceseze datele în siguranță
+CORS(app) # Allow cross-origin requests from the mobile and web app.
 app.config['ITINERARY_CACHE_PATH'] = os.path.join(os.path.dirname(__file__), 'itinerary_cache.sqlite3')
 
 # Shared across callers so changing IP addresses cannot bypass the cost limit.
@@ -268,5 +268,5 @@ def get_itinerary_for_app():
     return itinerary_response(text, False)
 
 if __name__ == '__main__':
-    # Serverul va rula pe calculatorul tău la portul 5000
+    # Run the local development server on port 5000.
     app.run(host=os.getenv('HOST', '127.0.0.1'), port=5000, debug=False)
