@@ -4,6 +4,11 @@
 
 A travel planner for Android, iOS, and web, built with Expo and React Native, powered by a Flask and CrewAI backend.
 
+## Demo
+### Web
+
+https://github.com/user-attachments/assets/a5c03f01-0487-4340-be18-c70d5ccf22e8
+
 ## Features
 
 - Departure and destination city autocomplete, quick suggestions, and route swapping.
