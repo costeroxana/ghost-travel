@@ -1,56 +1,79 @@
-# Welcome to your Expo app 👋
+# Ghost Travel
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An Expo / React Native travel planner with a Flask and CrewAI backend.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Departure and destination city autocomplete, quick suggestions, and route swapping.
+- Departure calendar, editable total EUR budget, and trip length from 1 to 30 days.
+- Animated travel scene during generation, with automatic scrolling and mobile keyboard handling.
+- Readable Markdown itineraries with individually collapsible day cards.
+- Destination photo gallery inside completed itineraries, with Wikimedia attribution and retry controls.
+- English, Romanian, Spanish, French, German, and Italian UI and itinerary generation; the selected language is saved locally.
+- Persistent SQLite itinerary cache keyed by route, budget, days, departure date, and language. Entries expire after 24 hours.
+- A shared limit of five new itinerary generations per minute per backend process. Cached responses do not consume the limit.
 
-   ```bash
-   npm install
-   ```
+## Frontend
 
-2. Start the app
+Requires a Node version compatible with Expo SDK 57 (Node 22.13 or newer).
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+npm ci
+Copy-Item .env.example .env
+npx expo start --go
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`EXPO_PUBLIC_API_URL` is the Python backend base URL, without `/api/itinerary`.
+For web on the same computer, use `http://localhost:5000`. For a physical phone,
+use the computer's Wi-Fi IPv4 address, for example `http://192.168.100.42:5000`.
+This frontend variable is public: keep OpenAI credentials in the backend only.
 
-### Other setup steps
+Press `w` for web, or scan the Expo Go QR code on your phone. The phone and
+computer need to share a Wi-Fi network. If Metro is inaccessible over LAN,
+`npx expo start --go --tunnel` can tunnel Metro; the Python API still needs
+its own reachable network address.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Backend
 
-## Learn more
+The complete backend source is in `backend/`. Python 3.12 is the tested version.
 
-To learn more about developing your project with Expo, look at the following resources:
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Set `OPENAI_API_KEY` in `backend/.env`, then start the local development server:
 
-## Join the community
+```powershell
+.\.venv\Scripts\python.exe app.py
+```
 
-Join our community of developers creating universal apps.
+For physical-device testing, set `HOST=0.0.0.0` in the backend environment and
+allow Python through the Windows firewall on the private network. Debug mode
+is disabled. The API runs on port 5000.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The SQLite cache is created automatically next to `app.py` and is excluded
+from Git. Images are looked up separately from itinerary generation and never
+trigger OpenAI calls. Flight details and costs are generated estimates.
+
+## Checks
+
+From the project root:
+
+```powershell
+npx tsc --noEmit
+npx expo lint
+```
+
+From `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest -q test_app_security test_destination_photos
+```
+
+Backend tests mock the agents and photo provider, so they do not make paid
+OpenAI calls. The current code has 24 passing backend tests. Full-project
+lint reports a pre-existing `react-hooks/set-state-in-effect` issue in
+`src/hooks/use-color-scheme.web.ts`; the changed app files pass lint.
