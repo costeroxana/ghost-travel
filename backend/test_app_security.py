@@ -11,6 +11,7 @@ from threading import Event
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from test_itinerary_models import crew_result
 
 
 class AppSecurityTests(unittest.TestCase):
@@ -29,15 +30,71 @@ class AppSecurityTests(unittest.TestCase):
         cache_directory = tempfile.TemporaryDirectory(dir=Path(__file__).parent)
         self.addCleanup(cache_directory.cleanup)
         self.app.config['ITINERARY_CACHE_PATH'] = str(Path(cache_directory.name) / 'cache.sqlite3')
+        self.app.config['AGENT_METRICS_PATH'] = str(Path(cache_directory.name) / 'metrics.sqlite3')
         self.client = self.app.test_client()
         self.crew = self.module['travel_crew'].copy.return_value
-        self.crew.kickoff.return_value = 'Test itinerary'
+        self.crew.kickoff.side_effect = lambda inputs: crew_result(days=int(inputs['duration'].split()[0]))
+
+    def test_gallery_endpoint_still_returns_photos(self):
+        gallery = [{'url': 'https://example.com/rome.jpg', 'title': 'Rome'}]
+        with patch.dict(self.app.view_functions['get_destination_photos'].__globals__,
+                        {'destination_photos': MagicMock(return_value=gallery)}):
+            response = self.client.get('/api/destination-photos?destination=Rome')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {'photos': gallery})
+        self.crew.kickoff.assert_not_called()
 
     def test_request_without_key_returns_itinerary(self):
         response = self.client.get('/api/itinerary')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json['text_itinerary'], 'Test itinerary')
+        self.assertIn('Test itinerary', response.json['text_itinerary'])
         self.crew.kickoff.assert_called_once()
+
+    def test_structured_itinerary_is_preserved_in_cache_and_response(self):
+        payload = {'origin': 'London', 'destination': 'Paris'}
+        first = self.client.post('/api/itinerary', json=payload)
+        second = self.client.post('/api/itinerary', json=payload)
+        self.assertEqual(first.json['itinerary']['days'][0]['activities'][0]['period'], 'afternoon')
+        self.assertIsNone(first.json['itinerary']['budget'][0]['estimated_cost_eur'])
+        self.assertEqual(first.json['itinerary'], second.json['itinerary'])
+        self.assertEqual(first.json['text_itinerary'], second.json['text_itinerary'])
+        self.assertTrue(second.json['cached'])
+        self.crew.kickoff.assert_called_once()
+        with sqlite3.connect(self.app.config['AGENT_METRICS_PATH']) as database:
+            self.assertEqual(database.execute('SELECT COUNT(*) FROM runs').fetchone()[0], 1)
+        database.close()
+
+    def test_invalid_structured_generation_is_not_cached(self):
+        self.crew.kickoff.side_effect = [SimpleNamespace(pydantic=None, raw='Invalid output'), crew_result()]
+        payload = {'origin': 'London', 'destination': 'Paris'}
+        with patch.object(self.app.logger, 'exception'):
+            self.assertEqual(self.client.post('/api/itinerary', json=payload).status_code, 502)
+        response = self.client.post('/api/itinerary', json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json['cached'])
+
+    def test_incomplete_itinerary_is_rejected_without_caching(self):
+        self.crew.kickoff.side_effect = [crew_result(days=1), crew_result(days=3)]
+        payload = {'origin': 'London', 'destination': 'Paris', 'days': 3}
+        with patch.object(self.app.logger, 'warning'):
+            invalid = self.client.post('/api/itinerary', json=payload)
+        self.assertEqual(invalid.status_code, 502)
+        self.assertIn('wrong number of days', invalid.json['error'])
+        valid = self.client.post('/api/itinerary', json=payload)
+        self.assertEqual(valid.status_code, 200)
+        self.assertFalse(valid.json['cached'])
+
+    def test_response_uses_requested_dates_and_computed_budget(self):
+        payload = {'origin': 'London', 'destination': 'Paris', 'days': 3, 'departure_date': '2096-02-28'}
+        response = self.client.post('/api/itinerary', json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([day['date'] for day in response.json['itinerary']['days']],
+                         ['2096-02-28', '2096-02-29', '2096-03-01'])
+        self.assertIsNone(response.json['budget_summary']['estimated_total_eur'])
+        self.assertTrue(response.json['budget_summary']['has_unknown_costs'])
+        cached = self.client.post('/api/itinerary', json=payload)
+        self.assertEqual(cached.json['budget_summary'], response.json['budget_summary'])
+        self.assertTrue(cached.json['cached'])
 
     def test_limit_is_shared_and_expires(self):
         headers = {}
@@ -46,7 +103,7 @@ class AppSecurityTests(unittest.TestCase):
                 response = self.client.get(f'/api/itinerary?destination=City{index}', headers=headers,
                                            environ_overrides={'REMOTE_ADDR': f'192.0.2.{index}'})
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.json['text_itinerary'], 'Test itinerary')
+                self.assertIn('Test itinerary', response.json['text_itinerary'])
             response = self.client.get('/api/itinerary?destination=NewCity', headers=headers)
             self.assertEqual(response.status_code, 429)
             self.assertEqual(response.headers['Retry-After'], '60')
@@ -83,7 +140,7 @@ class AppSecurityTests(unittest.TestCase):
 
     def test_cache_expires_at_24_hours_and_refreshes(self):
         payload = {'origin': 'London', 'destination': 'Paris'}
-        self.crew.kickoff.side_effect = ['Original itinerary', 'Updated itinerary']
+        self.crew.kickoff.side_effect = [crew_result('Original itinerary'), crew_result('Updated itinerary')]
         with patch('itinerary_cache.time.time', return_value=100000):
             first = self.client.post('/api/itinerary', json=payload)
         with patch('itinerary_cache.time.time', return_value=186399):
@@ -93,11 +150,11 @@ class AppSecurityTests(unittest.TestCase):
         with patch('itinerary_cache.time.time', return_value=186400):
             expired = self.client.post('/api/itinerary', json=payload)
         self.assertFalse(expired.json['cached'])
-        self.assertEqual(expired.json['text_itinerary'], 'Updated itinerary')
+        self.assertIn('Updated itinerary', expired.json['text_itinerary'])
         with patch('itinerary_cache.time.time', return_value=186401):
             refreshed = self.client.post('/api/itinerary', json=payload)
         self.assertTrue(refreshed.json['cached'])
-        self.assertEqual(refreshed.json['text_itinerary'], 'Updated itinerary')
+        self.assertIn('Updated itinerary', refreshed.json['text_itinerary'])
         self.assertEqual(self.crew.kickoff.call_count, 2)
 
     def test_legacy_cache_migrates_and_expires_unknown_age(self):
@@ -129,7 +186,7 @@ class AppSecurityTests(unittest.TestCase):
 
     def test_failed_generation_is_not_cached(self):
         payload = {'origin': 'London', 'destination': 'Paris'}
-        self.crew.kickoff.side_effect = [RuntimeError('Unavailable'), 'Successful itinerary']
+        self.crew.kickoff.side_effect = [RuntimeError('Unavailable'), crew_result('Successful itinerary')]
         with patch.object(self.app.logger, 'exception'):
             self.assertEqual(self.client.post('/api/itinerary', json=payload).status_code, 502)
         response = self.client.post('/api/itinerary', json=payload)
@@ -144,7 +201,7 @@ class AppSecurityTests(unittest.TestCase):
             started.set()
             if not release.wait(3):
                 raise RuntimeError('Test did not release generation')
-            return 'Shared itinerary'
+            return crew_result('Shared itinerary')
 
         self.crew.kickoff.side_effect = generate
 

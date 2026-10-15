@@ -54,3 +54,6 @@ venv/
 *.sqlite3-journal
 *.sqlite3-wal
 *.sqlite3-shm
+# Local agent comparison output
+agent_comparison.log
+agent_comparison.json

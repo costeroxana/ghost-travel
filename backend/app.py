@@ -12,7 +12,12 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 from itinerary_cache import read_itinerary, request_key, save_itinerary
-from destination_photos import destination_photo, destination_photos
+from destination_photos import destination_photos
+from agent_metrics import measured_generation
+from itinerary_models import (
+    FlightResearch, LocalResearch, Itinerary, ItineraryValidationError,
+    parse_crew_itinerary, prepare_itinerary, render_itinerary, budget_summary,
+)
 
 # 1. Load environment settings from .env.
 load_dotenv()
@@ -24,10 +29,10 @@ print("🧠 Initializing Ghost Travel Agent...")
 # Agent 1: Flight logistics expert.
 flight_hunter = Agent(
     role='Flight Logistics Expert',
-    goal='Find the most efficient and cost-effective flight routes.',
-    backstory='''You are a master of aviation routing. You know how to analyze flight
-    patterns, connection times, and budget airlines to find hidden flight deals
-    that normal travelers miss.''',
+    goal='Suggest plausible flight routes and clearly labeled planning estimates without claiming live verification.',
+    backstory='''You advise travelers on airports, routing, and approximate travel budgets.
+    You have no live flight-search or booking access. You distinguish general routing
+    advice from verified schedules, fares, and availability, and never invent booking details.''',
     verbose=True,
     allow_delegation=False
 )
@@ -36,9 +41,9 @@ flight_hunter = Agent(
 local_explorer = Agent(
     role='Alternative Local Guide',
     goal='Discover authentic, non-touristy attractions and local culinary spots.',
-    backstory='''You hate tourist traps. You spend your time reading local blogs,
-    neighborhood forums, and cultural archives to find authentic "hidden gems"
-    and incredible local restaurants.''',
+    backstory='''You suggest local places from general knowledge. You have no live search
+    access, so ratings, opening hours, availability and prices must be verified.
+    You distinguish suggestions from verified recommendations.''',
     verbose=True,
     allow_delegation=False
 )
@@ -67,39 +72,70 @@ task_find_flights = Task(
     description='''Analyze potential flight options from {origin} to {destination} for a {duration} trip.
     Departure date: {departure_date}. Last trip day: {end_date}.
     Write your response in {language}.
+    You have no live flight-search data. Suggest relevant airports and plausible routes,
+    explicitly labeling route availability as unverified for the requested dates.
+    Do not invent flight numbers, exact departure or arrival times, bookable fares,
+    seat availability, or claims that an airline operates a route on these dates.
+    Where useful, provide broad estimated price and journey-time ranges, explaining
+    whether prices are per person and round-trip or one-way. If uncertain, say so.
+    Preferred travel windows are planning preferences, not actual flight schedules.
+    Tell the traveler to verify routes, schedules, and current prices before booking.
     Focus on maximizing time at the destination while keeping costs minimal within the overall {budget} budget.''',
-    expected_output='A summary of the best estimated flight options including departure/return windows and estimated costs.',
-    agent=flight_hunter
+    expected_output='Potential airports and routes with unverified availability, broad labeled cost and travel-time estimates where supportable, and a reminder to verify options before booking; no invented flight numbers or exact schedules.',
+    agent=flight_hunter,
+    output_pydantic=FlightResearch,
+    name='flight_research',
 )
 
 task_find_local_spots = Task(
-    description='''Find 4-5 unique, non-touristy attractions and 3 highly-rated local restaurants in {destination}.
+    description='''Suggest 4-5 interesting attractions and 3 local restaurants in {destination}.
     Select enough options for {duration} and respect the total trip budget of {budget}.
     Trip dates: {departure_date} through {end_date}; consider season and weekday closures.
     Write your response in {language}.
+    Do not invent ratings, current opening hours, or claims of live research.
+    Label prices and closure information as unverified.
     Avoid standard traps like overpriced central plazas; find spots loved by locals.''',
     expected_output='A curated list of hidden gems, local food spots, and short descriptions of why they are special.',
-    agent=local_explorer
+    agent=local_explorer,
+    output_pydantic=LocalResearch,
+    name='local_research',
 )
 
 task_create_itinerary = Task(
     description='''Review the flight options and local spots provided by the other agents.
-    Create a highly optimized itinerary covering exactly {duration} for {destination} within the total {budget} budget.
+    Create an itinerary covering exactly {duration} for {destination}, assessing the requested total {budget} budget honestly.
     Treat this as the total trip budget including flights, accommodation, food, and activities.
+    Flight suggestions are unverified planning estimates, not live search results.
+    Preserve that distinction in the Flights section and label any flight costs in the
+    budget breakdown as estimates. Do not add flight numbers, exact flight times,
+    confirmed airline routes, availability, or claims of bookable prices.
+    Keep arrival-day and return-day activities flexible because flight times are unknown;
+    explicitly state any arrival/departure assumptions rather than presenting them as facts.
+    Include a reminder in {language} to verify routes, schedules, and prices before booking.
     Trip dates: {departure_date} through {end_date}. When dates are specified, include
-    the calendar date and weekday in each Day N heading. The departure date is Day 1.
+    the calendar date in each day object. The departure date is Day 1.
     Group activities logically by neighborhood so the traveler doesn't waste time crossing the city.
-    Write in {language} using Markdown. Translate all section headings into {language}.
-    Start with a brief overview, then use ## headings for
-    Flights, Where to stay, each Day N, Budget breakdown, and Practical tips.
-    Each day heading must start with {day_label} N (using that exact day label), followed by the date.
-    Under each day use translated ### Morning, ### Afternoon, and ### Evening headings, with short bullet points
-    for activities, travel time, and estimated costs. Use bold for important place names and costs.
-    Keep paragraphs short and put blank lines between sections. Use a bullet list for the budget
-    breakdown rather than a wide table. Clearly mark prices and flights as estimates.
-    Return only the itinerary Markdown, without wrapping it in a code fence.''',
-    expected_output='A readable Markdown itinerary with a short overview, flights, accommodation, separate day headings, morning/afternoon/evening lists, estimated budget breakdown, and practical tips.',
-    agent=chief_concierge
+    Return structured data matching the Itinerary schema, not Markdown or code fences.
+    Write all user-facing text in {language}; keep schema keys and period enum values unchanged.
+    Supply an overview, flight options and their verification caveat, accommodation advice,
+    numbered days with ISO dates (null if unspecified), and morning/afternoon/evening activities.
+    Each activity needs a title, place, details, and estimated EUR cost (null if unknown).
+    Supply total-trip budget categories with estimated numeric EUR amounts (null if unknown),
+    using distinct, non-overlapping categories. Include flights, accommodation, food,
+    activities and local transport, marking any unknown amounts as null. Do not include
+    total or subtotal rows; Python calculates the sum. Never claim an unknown cost is free.
+    Use each budget kind at most once; do not overlap categories or include totals.
+    Do not lower estimates to force the trip within budget. When funds appear insufficient,
+    explain the limitation and suggest practical changes (dates, fewer nights, closer destination)
+    in budget_advice without claiming verified savings. When costs are unknown, state that
+    affordability cannot be confirmed. Do not promise that the trip fits the budget.
+    Include explanatory budget notes and practical tips. Do not put weekday names in day titles.
+    Keep text concise. Never use zero as a substitute for an unknown cost.''',
+    expected_output='A structured Itinerary object containing localized travel advice, individual days and activities, estimated numeric EUR costs or null, and explicit flight uncertainty.',
+    agent=chief_concierge,
+    output_pydantic=Itinerary,
+    name='itinerary_coordinator',
+    context=[task_find_flights, task_find_local_spots],
 )
 
 
@@ -124,6 +160,7 @@ travel_crew = Crew(
 # 5. Expose the backend API for the React Native app.
 app = Flask(__name__)
 CORS(app) # Allow cross-origin requests from the mobile and web app.
+app.config['AGENT_METRICS_PATH'] = os.path.join(os.path.dirname(__file__), 'agent_metrics.sqlite3')
 app.config['ITINERARY_CACHE_PATH'] = os.path.join(os.path.dirname(__file__), 'itinerary_cache.sqlite3')
 
 # Shared across callers so changing IP addresses cannot bypass the cost limit.
@@ -145,18 +182,6 @@ def limit_generation():
         _request_times.append(now)
 
     return None
-
-@app.get('/api/destination-photo')
-def get_destination_photo():
-    destination_name = ' '.join(request.args.get('destination', '').split())
-    if not 2 <= len(destination_name) <= 100:
-        return jsonify(error='Enter a destination between 2 and 100 characters.'), 400
-    try:
-        return jsonify(photo=destination_photo(destination_name))
-    except Exception:
-        app.logger.warning('Destination photo provider is unavailable', exc_info=True)
-        return jsonify(photo=None), 200
-
 
 @app.get('/api/destination-photos')
 def get_destination_photos():
@@ -229,43 +254,52 @@ def get_itinerary_for_app():
     key = request_key(route, trip_budget, trip_days, departure_date, language_code)
     cache_path = app.config['ITINERARY_CACHE_PATH']
 
-    def itinerary_response(text, cached):
+    def itinerary_response(plan, cached):
+        plan = prepare_itinerary(plan, trip_days, departure_date, language_code)
+        text = render_itinerary(plan, language_code, trip_budget)
         return jsonify({**route, 'budget': float(trip_budget), 'currency': 'EUR',
                         'days': trip_days, 'departure_date': departure_date, 'end_date': end_date,
-                        'text_itinerary': text, 'cached': cached, 'language': language_code})
+                        'text_itinerary': text, 'itinerary': plan.model_dump(mode='json'),
+                        'budget_summary': budget_summary(plan, trip_budget),
+                        'cached': cached, 'language': language_code})
 
     try:
         cached_text = read_itinerary(cache_path, key)
         if cached_text is not None:
-            return itinerary_response(cached_text, True)
+            return itinerary_response(Itinerary.model_validate_json(cached_text), True)
         # Fresh tasks prevent one request from retaining another route's prompts/output.
         with _crew_lock:
             # A matching request may have completed while this caller waited.
             cached_text = read_itinerary(cache_path, key)
             if cached_text is not None:
-                return itinerary_response(cached_text, True)
+                return itinerary_response(Itinerary.model_validate_json(cached_text), True)
             limited = limit_generation()
             if limited is not None:
                 return limited
-            result = travel_crew.copy().kickoff(inputs={
+            inputs = {
                 **route, 'budget': f'{trip_budget.normalize():f} EUR',
                 'duration': f'{trip_days} {"day" if trip_days == 1 else "days"}',
                 'departure_date': departure_date or 'Not specified',
                 'end_date': end_date or 'Not specified',
                 'language': language_name, 'day_label': day_label,
-            })
-            text = str(result).strip()
-            if not text:
-                raise ValueError('The crew returned an empty itinerary')
+            }
+            plan, _ = measured_generation(
+                travel_crew.copy(), inputs,
+                lambda result: prepare_itinerary(parse_crew_itinerary(result), trip_days, departure_date, language_code),
+                app.config['AGENT_METRICS_PATH'], app.logger,
+            )
             try:
-                save_itinerary(cache_path, key, text)
+                save_itinerary(cache_path, key, plan.model_dump_json())
             except Exception:
                 app.logger.exception('Could not save the completed itinerary to cache')
+    except ItineraryValidationError as error:
+        app.logger.warning('Itinerary validation failed: %s', error)
+        return jsonify(error=f'{error} Please try again.'), 502
     except Exception:
         app.logger.exception('Itinerary generation failed')
         return jsonify(error='Could not create your itinerary. Please try again.'), 502
 
-    return itinerary_response(text, False)
+    return itinerary_response(plan, False)
 
 if __name__ == '__main__':
     # Run the local development server on port 5000.
