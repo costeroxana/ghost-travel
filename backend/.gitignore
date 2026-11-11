@@ -1,0 +1,21 @@
+# Local credentials
+.env
+.env.*
+!.env.example
+
+# Python environments and bytecode
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Runtime data and temporary runs
+*.sqlite3
+*.sqlite3-*
+/tmp*/
+
+# Generated experiment reports and recordings
+/experiments/agent_comparison/agent_comparison.json
+/experiments/agent_comparison/latest_report.json
+*.log
+/experiments/demo-web/

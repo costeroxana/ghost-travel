@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from agent_metrics import measured_generation
-from itinerary_models import budget_summary, parse_crew_itinerary, prepare_itinerary
+from agents.itinerary_models import budget_summary, parse_crew_itinerary, prepare_itinerary
 from decimal import Decimal
 
 
@@ -38,7 +38,8 @@ def compare(crew, inputs, days, departure_date, budget, path, logger):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live', action='store_true', help='Required: authorizes model calls using your configured API account.')
-    parser.add_argument('--output', default='agent_comparison.json')
+    parser.add_argument('--output', type=Path,
+                        default=Path(__file__).with_name('latest_report.json'))
     args = parser.parse_args()
     if not args.live:
         parser.error('Use --live to explicitly run this comparison with paid model calls.')
@@ -48,7 +49,7 @@ def main():
     with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as directory:
         reports = compare(app.travel_crew, inputs, 2, None, Decimal('500'),
                           str(Path(directory) / 'metrics.sqlite3'), logging.getLogger(__name__))
-    Path(args.output).write_text(json.dumps(reports, indent=2), encoding='utf8')
+    args.output.write_text(json.dumps(reports, indent=2), encoding='utf8')
     print(json.dumps(reports, indent=2))
 
 

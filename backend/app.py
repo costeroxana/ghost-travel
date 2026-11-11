@@ -13,11 +13,11 @@ from dotenv import load_dotenv
 from itinerary_cache import read_itinerary, request_key, save_itinerary
 from destination_photos import destination_photos
 from agent_metrics import measured_generation
-from itinerary_models import (
+from agents.itinerary_models import (
     FlightResearch, LocalResearch, Itinerary, ItineraryValidationError,
-    parse_crew_itinerary, prepare_itinerary, render_itinerary, budget_summary,
+    credit_museum_sources, parse_crew_itinerary, prepare_itinerary, render_itinerary, budget_summary,
 )
-from travel_agents import create_travel_crew
+from crew_loader import create_travel_crew
 
 # 1. Load environment settings from .env.
 load_dotenv()
@@ -158,9 +158,21 @@ def get_itinerary_for_app():
                 'end_date': end_date or 'Not specified',
                 'language': language_name, 'day_label': day_label,
             }
+            crew = travel_crew.copy()
+
+            def validate_itinerary(result):
+                plan = prepare_itinerary(parse_crew_itinerary(result), trip_days, departure_date, language_code)
+                museum_names = {
+                    name
+                    for agent in crew.agents
+                    for tool in agent.tools
+                    if tool.name == 'find_places'
+                    for name in tool.returned_names
+                }
+                return credit_museum_sources(plan, museum_names)
+
             plan, _ = measured_generation(
-                travel_crew.copy(), inputs,
-                lambda result: prepare_itinerary(parse_crew_itinerary(result), trip_days, departure_date, language_code),
+                crew, inputs, validate_itinerary,
                 app.config['AGENT_METRICS_PATH'], app.logger,
             )
             try:

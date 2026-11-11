@@ -220,3 +220,15 @@ def parse_crew_itinerary(result):
     # CrewAI can return raw JSON if its Pydantic conversion did not succeed.
     raw = getattr(result, 'raw', result)
     return Itinerary.model_validate_json(raw)
+
+
+
+def credit_museum_sources(plan: Itinerary, museum_names: set[str]) -> Itinerary:
+    names = {name.casefold() for name in museum_names}
+    credit = 'OpenStreetMap via LatLng'
+    for day in plan.days:
+        for activity in day.activities:
+            text = ' '.join((activity.title, activity.place, activity.details)).casefold()
+            if credit.casefold() not in activity.details.casefold() and any(name in text for name in names):
+                activity.details = f'{activity.details.rstrip()} ({credit})'
+    return plan

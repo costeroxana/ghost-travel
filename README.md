@@ -16,6 +16,7 @@ https://github.com/user-attachments/assets/a5c03f01-0487-4340-be18-c70d5ccf22e8
 - Departure calendar, editable total EUR budget, and trip length from 1 to 30 days.
 - Animated travel scene during generation, with automatic scrolling and mobile keyboard handling.
 - Readable Markdown itineraries with individually collapsible day cards.
+- Live museum lookup through LatLng during itinerary generation. Matching itinerary activities credit OpenStreetMap via LatLng.
 - Destination photo gallery inside completed itineraries, with Wikimedia attribution and retry controls.
 - English, Romanian, Spanish, French, German, and Italian UI and itinerary generation; the selected language is saved locally.
 - Persistent SQLite itinerary cache keyed by route, budget, days, departure date, and language. Entries expire after 24 hours.
@@ -28,7 +29,7 @@ Ghost Travel uses a CrewAI crew with three specialized roles. They are separate 
 | Agent | Responsibility | Structured output |
 | --- | --- | --- |
 | Flight Logistics Expert | Suggests potential airports and routes, broad travel-time and fare estimates, and what needs verification before booking. | `FlightResearch`: route options, estimates, and a verification caveat. |
-| Alternative Local Guide | Suggests attractions and restaurants, with neighborhood information, descriptions, estimated costs, and uncertainty notes. | `LocalResearch`: places and caveats. |
+| Alternative Local Guide | Calls `find_places` for museums near the destination and suggests other attractions and restaurants from model knowledge. | `LocalResearch`: places and caveats. |
 | Chief Travel Coordinator | Combines the specialists’ suggestions into daily activities, accommodation advice, budget categories, practical tips, and budget adjustment options. | `Itinerary`: the complete structured travel plan. |
 
 ### Execution and collaboration
@@ -41,22 +42,26 @@ The coordinator is instructed to group activities by area and keep arrival and d
 
 1. **Validate the request.** Flask checks city text, budget, trip length, departure date, and language. City names are not checked against a geographic database.
 2. **Check the cache.** An identical request completed within the last 24 hours returns immediately without running the agents. On a cache miss, the generation rate limit applies.
-3. **Run a fresh crew copy.** The three tasks produce typed Pydantic results. The coordinator uses the specialists’ outputs to assemble the final plan.
-4. **Check and prepare the plan in Python.** The backend checks day count and numbering, derives dates and weekdays from the requested departure date, checks budget categories, and calculates totals. Missing core costs prevent a complete affordability assessment. These are consistency checks, not verification of real-world travel information.
+3. **Run a fresh crew copy.** The three tasks produce typed Pydantic results. The coordinator uses the specialists’ outputs to assemble the final plan. Local research can call the LatLng museum tool.
+4. **Check and prepare the plan in Python.** The backend checks day count and numbering, derives dates and weekdays from the requested departure date, checks budget categories, calculates totals, and adds source credit to activities matching museums returned by the tool. Missing core costs prevent a complete affordability assessment. These are consistency checks, not verification of real-world travel information.
 5. **Render and save.** Valid structured data is cached and converted into localized Markdown for the existing itinerary cards. Invalid results are not cached. Destination photos load separately after the itinerary is ready.
 
-Local measurements record each task’s duration, token usage when available, and success or failure. These measurements help assess the value of each agent; the three-agent workflow remains the app’s default. See the [workflow comparison](backend/AGENT_EVALUATION.md) for an initial benchmark and its limitations.
+Local measurements record each task’s duration, token usage when available, and success or failure. These measurements help assess the value of each agent; the three-agent workflow remains the app’s default. See the [workflow comparison](backend/experiments/agent_comparison/README.md) for an initial benchmark and its limitations.
 
 ### What the agents can verify
 
-The agents currently work from model knowledge and **have no live flight-search, restaurant-search, or booking tools**. Their recommendations, opening hours, route availability, and prices require independent verification. Destination photos come from a separate Wikimedia lookup; they are not evidence that the agents performed live research. Python validation improves consistency but cannot establish factual accuracy.
+When `LATLNG_API_KEY` is configured, `find_places(city, category="museum")` geocodes the destination and requests up to five named museums within 5 km. The coordinator is instructed to schedule a returned museum. The backend credits matching activities before saving the itinerary. If the lookup is unavailable or empty, the crew can still generate a plan using general knowledge.
+
+LatLng supplies place names and coordinates. Opening hours, prices, flight routes, and availability are estimates or require independent verification. Wikimedia destination photos load through a separate Flask endpoint.
 
 ## Project structure
 
 - `src/app/`: Expo Router screens and root layout.
 - `src/components/`: trip form, calendar, animation, gallery, and itinerary cards.
 - `src/i18n/`: six-language translation catalog and saved language preference.
-- `backend/`: Flask API, agents, photo lookup, persistent cache, and tests.
+- [`backend/`](backend/README.md) contains Flask, itinerary caching, and destination photos.
+- [`backend/agents/`](backend/agents/README.md) contains the active CrewAI JSONC configuration, Pydantic schemas, and LatLng tool.
+- `backend/tests/` contains the backend test suite. [`backend/experiments/`](backend/experiments/README.md) contains optional benchmarks and prototype code.
 
 ## Frontend
 
@@ -66,8 +71,6 @@ Use a supported Node.js release for Expo SDK 57, for example Node 22.x starting 
 npm ci
 npx expo start --go
 ```
-
-The committed `.env` files contain configuration placeholders only. Add credentials locally and do not commit them.
 
 `EXPO_PUBLIC_API_URL` is the Python backend base URL, without `/api/itinerary`.
 For web on the same computer, use `http://localhost:5000`. For a physical phone,
@@ -89,25 +92,14 @@ the Python connection without generating an itinerary, open
 
 ## Environment configuration
 
-Two sanitized configuration files are tracked in Git:
+Create these files locally. Git ignores both.
 
-- `.env`: `EXPO_PUBLIC_API_URL`, the frontend's backend base URL.
-- `backend/.env`: `HOST` and an empty `OPENAI_API_KEY` placeholder.
-
-Enter your own OpenAI key in your local `backend/.env`. No OpenAI key is
-included in the repository. Before staging or pushing environment changes,
-ensure the committed `OPENAI_API_KEY` value stays empty. A `.gitignore` rule
-does not protect secrets in a file that Git already tracks.
-
-For this development checkout, environment files can be kept out of routine
-staging with:
-
-```powershell
-git update-index --skip-worktree .env backend/.env
-```
-
-This is a local Git setting, not a security guarantee or a setting inherited
-by fresh clones. No `.env.example` files are required.
+| File | Variable | Purpose |
+| --- | --- | --- |
+| `.env` | `EXPO_PUBLIC_API_URL` | Backend base URL used by Expo |
+| `backend/.env` | `OPENAI_API_KEY` | Model access for itinerary generation |
+| `backend/.env` | `LATLNG_API_KEY` | Live museum lookup |
+| `backend/.env` | `HOST` | Optional Flask bind address, defaults to `127.0.0.1` |
 
 ## Backend
 
@@ -119,7 +111,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Set `OPENAI_API_KEY` in `backend/.env`, then start the local development server:
+Set `OPENAI_API_KEY` and, for live museum lookup, `LATLNG_API_KEY` in `backend/.env`, then start the local development server:
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 app.py
@@ -171,7 +163,7 @@ been taken earlier; they are not live destination images. Invalid destination te
 
 All three CrewAI tasks use Pydantic output models: flight research, local places, and the final itinerary. The API returns an `itinerary` object with days, activities, ISO dates, and estimated EUR costs, alongside the existing `text_itinerary` Markdown used by the app. Unknown costs are `null`; zero represents an estimated free item, not a verified free offer. Costs are serialized as decimal strings to preserve precision.
 
-The backend renders localized headings for all six languages and caches the structured JSON for 24 hours. Invalid structured output returns the existing generation error and is not cached. Python validates the requested day count and unique consecutive day numbers, orders days, and derives dates and localized weekdays from the requested departure date. Without a departure date, day dates remain null. Duplicate budget category labels are rejected. Costs are rounded to cents before summing; the API returns a computed `budget_summary`, and the displayed total stays unknown if any category cost is unknown. Known costs exceeding the requested budget are flagged. Plans with missing, repeated, or extra days are rejected before caching; plans with unknown budget costs remain valid and are marked accordingly. These checks do not verify real-world prices, schedules, or whether every expense has been included. No external research tools have been added.
+The backend renders localized headings for all six languages and caches the structured JSON for 24 hours. Invalid structured output returns the existing generation error and is not cached. Python validates the requested day count and unique consecutive day numbers, orders days, and derives dates and localized weekdays from the requested departure date. Without a departure date, day dates remain null. Duplicate budget category labels are rejected. Costs are rounded to cents before summing; the API returns a computed `budget_summary`, and the displayed total stays unknown if any category cost is unknown. Known costs exceeding the requested budget are flagged. Plans with missing, repeated, or extra days are rejected before caching; plans with unknown budget costs remain valid and are marked accordingly. These checks do not verify real-world prices, schedules, or whether every expense has been included.
 
 ### Budget feasibility and agent metrics
 
@@ -179,7 +171,7 @@ Budget rows use distinct typed categories. Missing flights, accommodation, food,
 
 New generations record task duration and token-counter deltas when available, task completion/failure/not-started status, total run duration, and run-level error types in local `backend/agent_metrics.sqlite3` (last 1,000 runs). Prompts, itinerary text, credentials and route inputs are not stored there. Shared model counters are deduplicated, task usage includes any delegation, and cached requests create no agent run. Token counts are measured usage, not a currency cost estimate. Missing provider counters remain unavailable.
 
-From `backend/`, inspect the latest measurements with `.\.venv\Scripts\python.exe -X utf8 agent_metrics.py` (latest 10 runs). To explicitly run a model-call comparison of the normal crew with a single coordinator, use `.\.venv\Scripts\python.exe -X utf8 compare_agents.py --live`. This uses the configured API account and writes `agent_comparison.json`; one example measures latency and usage, not recommendation quality. The app continues to use all three agents.
+From `backend/`, inspect the latest measurements with `.\.venv\Scripts\python.exe -X utf8 agent_metrics.py` (latest 10 runs). To explicitly run a model-call comparison of the normal crew with a single coordinator, use `.\.venv\Scripts\python.exe -X utf8 -m experiments.agent_comparison.compare_agents --live`. This uses the configured API account and writes `backend/experiments/agent_comparison/latest_report.json`; one example measures latency and usage, not recommendation quality. The app continues to use all three agents.
 
 ## Cache behavior
 
@@ -205,8 +197,8 @@ npx expo lint
 From `backend/`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest -q test_app_security test_destination_photos test_itinerary_models test_agent_metrics
+.\.venv\Scripts\python.exe -m unittest discover -q
 ```
 
 Backend tests mock the agents and photo provider, so they do not make paid
-OpenAI calls. Verified on 2026-10-15: 44 backend tests, TypeScript, and full-project lint pass. The web color-scheme hook uses a server-compatible subscription: static rendering and initial hydration use the light theme, followed by the system preference on the client.
+OpenAI calls. The web color-scheme hook uses a server-compatible subscription: static rendering and initial hydration use the light theme, followed by the system preference on the client.

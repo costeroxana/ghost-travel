@@ -1,7 +1,6 @@
 import contextlib
 import io
 import runpy
-import sys
 import unittest
 import tempfile
 import time
@@ -11,7 +10,7 @@ from threading import Event
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from test_itinerary_models import crew_result
+from tests.test_itinerary_models import crew_result
 
 
 class AppSecurityTests(unittest.TestCase):
@@ -20,12 +19,8 @@ class AppSecurityTests(unittest.TestCase):
         stdout_patch.start()
         self.addCleanup(stdout_patch.stop)
         # Load the real routes without initializing providers or making LLM calls.
-        crewai = SimpleNamespace(
-            Agent=MagicMock(), Task=MagicMock(), Crew=MagicMock(),
-            Process=SimpleNamespace(sequential='sequential'),
-        )
-        with patch.dict(sys.modules, {'crewai': crewai}), contextlib.redirect_stdout(io.StringIO()):
-            self.module = runpy.run_path(str(Path(__file__).with_name('app.py')))
+        with patch('crew_loader.create_travel_crew'), contextlib.redirect_stdout(io.StringIO()):
+            self.module = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.py'))
         self.app = self.module['app']
         cache_directory = tempfile.TemporaryDirectory(dir=Path(__file__).parent)
         self.addCleanup(cache_directory.cleanup)
@@ -34,6 +29,24 @@ class AppSecurityTests(unittest.TestCase):
         self.client = self.app.test_client()
         self.crew = self.module['travel_crew'].copy.return_value
         self.crew.kickoff.side_effect = lambda inputs: crew_result(days=int(inputs['duration'].split()[0]))
+
+    def test_museum_credit_is_added_and_cached(self):
+        museum = 'Domus Romane di Palazzo Valentini'
+        result = crew_result(days=2)
+        result.pydantic.days[0].activities[0].place = museum
+        self.crew.kickoff.side_effect = None
+        self.crew.kickoff.return_value = result
+        self.crew.agents = [SimpleNamespace(tools=[
+            SimpleNamespace(name='find_places', returned_names={museum}),
+        ])]
+        payload = {'origin': 'London', 'destination': 'Rome, Italy', 'days': 2}
+        for cached in (False, True):
+            response = self.client.post('/api/itinerary', json=payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json['cached'], cached)
+            text = response.json['text_itinerary']
+            self.assertTrue(any(museum in line and 'OpenStreetMap via LatLng' in line
+                                for line in text.splitlines()))
 
     def test_gallery_endpoint_still_returns_photos(self):
         gallery = [{'url': 'https://example.com/rome.jpg', 'title': 'Rome'}]
@@ -128,15 +141,13 @@ class AppSecurityTests(unittest.TestCase):
     def test_saved_result_survives_app_reload(self):
         payload = {'origin': 'London', 'destination': 'Paris'}
         self.client.post('/api/itinerary', json=payload)
-        crewai = SimpleNamespace(Agent=MagicMock(), Task=MagicMock(), Crew=MagicMock(),
-                                Process=SimpleNamespace(sequential='sequential'))
-        with patch.dict(sys.modules, {'crewai': crewai}):
-            reloaded = runpy.run_path(str(Path(__file__).with_name('app.py')))
+        with patch('crew_loader.create_travel_crew') as create_crew:
+            reloaded = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.py'))
         reloaded['app'].config['ITINERARY_CACHE_PATH'] = self.app.config['ITINERARY_CACHE_PATH']
         response = reloaded['app'].test_client().post('/api/itinerary', json=payload)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json['cached'])
-        crewai.Crew.return_value.copy.assert_not_called()
+        create_crew.return_value.copy.assert_not_called()
 
     def test_cache_expires_at_24_hours_and_refreshes(self):
         payload = {'origin': 'London', 'destination': 'Paris'}
@@ -331,13 +342,10 @@ class AppSecurityTests(unittest.TestCase):
         self.assertIn('error', response.json)
 
     def test_direct_server_start_disables_debug_and_defaults_to_loopback(self):
-        with patch.dict(sys.modules, {'crewai': SimpleNamespace(
-            Agent=MagicMock(), Task=MagicMock(), Crew=MagicMock(),
-            Process=SimpleNamespace(sequential='sequential'),
-        )}), patch('flask.Flask.run') as run, patch('dotenv.load_dotenv'), \
+        with patch('crew_loader.create_travel_crew'), patch('flask.Flask.run') as run, patch('dotenv.load_dotenv'), \
                 patch.dict('os.environ', {'HOST': '127.0.0.1'}), \
                 contextlib.redirect_stdout(io.StringIO()):
-            runpy.run_path(str(Path(__file__).with_name('app.py')), run_name='__main__')
+            runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.py'), run_name='__main__')
         run.assert_called_once_with(host='127.0.0.1', port=5000, debug=False)
 
 

@@ -11,4 +11,6 @@ Both runs passed structured-output and day-count validation. Calendar dates were
 
 The single-agent example was faster and used fewer tokens. This is one sample, not evidence of equivalent recommendation quality. Different estimated budgets also show why model-generated costs should remain explicitly uncertain. Keep the three-agent production workflow until a larger set of destinations, budgets and trip lengths has been reviewed for factual accuracy, geographic coherence, budget completeness and practical usefulness. No architecture switch was made. Token counts are not currency costs.
 
-Reproduce explicitly with `python compare_agents.py --live`; this makes model calls using your API account. Inspect normal app runs with `python agent_metrics.py`.
+Run again from the backend root with `python -m experiments.agent_comparison.compare_agents --live`. This makes model calls using your configured API account and writes `latest_report.json` beside the script by default. Pass `--output PATH` to save elsewhere. The table above records the original measurements. Generated reports and logs stay local.
+
+The production crew has changed since this measurement. In the current experiment only the full crew has access to the LatLng museum tool, so the comparison measures the workflows as configured. It cannot isolate the effect of adding agents. To inspect normal app runs without generating an itinerary, run `python agent_metrics.py` from the backend root.

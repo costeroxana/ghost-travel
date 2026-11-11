@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import sqlite3
 import time
 from contextlib import closing
@@ -19,7 +20,8 @@ def ensure_schema(database):
 
 def request_key(route, budget, days, departure_date=None, language='en'):
     # Bump the format version when generation prompts or model settings change.
-    settings = [7, route['origin'].casefold(), route['destination'].casefold(),
+    settings = [11, bool(os.getenv('LATLNG_API_KEY', '').strip()),
+                route['origin'].casefold(), route['destination'].casefold(),
                 f'{budget.normalize():f}', days, 'EUR', departure_date, language]
     return hashlib.sha256(json.dumps(settings, ensure_ascii=False).encode('utf-8')).hexdigest()
 
