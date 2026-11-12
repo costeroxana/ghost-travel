@@ -60,7 +60,7 @@ LatLng supplies place names and coordinates. Opening hours, prices, flight route
 - `src/components/`: trip form, calendar, animation, gallery, and itinerary cards.
 - `src/i18n/`: six-language translation catalog and saved language preference.
 - [`backend/`](backend/README.md) contains Flask, itinerary caching, and destination photos.
-- [`backend/agents/`](backend/agents/README.md) contains the active CrewAI JSONC configuration, Pydantic schemas, and LatLng tool.
+- [`backend/crew/`](backend/crew/README.md) contains the active CrewAI JSONC configuration, Pydantic schemas, and LatLng tool.
 - `backend/tests/` contains the backend test suite. [`backend/experiments/`](backend/experiments/README.md) contains optional benchmarks and prototype code.
 
 ## Frontend

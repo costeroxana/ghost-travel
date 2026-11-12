@@ -18,10 +18,10 @@ Flask listens on `127.0.0.1:5000` by default. For a physical device on your loca
 | --- | --- |
 | [app.py](app.py) | HTTP routes, input validation, rate limits, and response handling |
 | [crew_loader.py](crew_loader.py) | Loads the active CrewAI project from disk |
-| [agents/crew.jsonc](agents/crew.jsonc) | Flight research, local research, and itinerary tasks, with their dependencies and output schemas |
-| [agents/agents/](agents/agents/) | Agent roles, goals, and settings |
-| [agents/tools/find_places.py](agents/tools/find_places.py) | Validates model tool arguments and queries LatLng for museums near the destination |
-| [agents/itinerary_models.py](agents/itinerary_models.py) | Pydantic schemas, itinerary validation, budget calculations, and rendering |
+| [crew/crew.jsonc](crew/crew.jsonc) | Flight research, local research, and itinerary tasks, with their dependencies and output schemas |
+| [crew/agents/](crew/agents/) | Agent roles, goals, and settings |
+| [crew/tools/find_places.py](crew/tools/find_places.py) | Validates model tool arguments and queries LatLng for museums near the destination |
+| [crew/itinerary_models.py](crew/itinerary_models.py) | Pydantic schemas, itinerary validation, budget calculations, and rendering |
 | [destination_photos.py](destination_photos.py) | Attributed destination images for the app gallery |
 | [itinerary_cache.py](itinerary_cache.py) and [agent_metrics.py](agent_metrics.py) | SQLite caching and generation metrics |
 

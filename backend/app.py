@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from itinerary_cache import read_itinerary, request_key, save_itinerary
 from destination_photos import destination_photos
 from agent_metrics import measured_generation
-from agents.itinerary_models import (
+from crew.itinerary_models import (
     FlightResearch, LocalResearch, Itinerary, ItineraryValidationError,
     credit_museum_sources, parse_crew_itinerary, prepare_itinerary, render_itinerary, budget_summary,
 )

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from agent_metrics import measured_generation
-from agents.itinerary_models import budget_summary, parse_crew_itinerary, prepare_itinerary
+from crew.itinerary_models import budget_summary, parse_crew_itinerary, prepare_itinerary
 from decimal import Decimal
 
 

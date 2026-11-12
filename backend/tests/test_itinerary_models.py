@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from pydantic import ValidationError
 
-from agents.itinerary_models import (Activity, BudgetItem, LocalPlace, Itinerary, LABELS, WEEKDAYS,
+from crew.itinerary_models import (Activity, BudgetItem, LocalPlace, Itinerary, LABELS, WEEKDAYS,
                               ItineraryValidationError, parse_crew_itinerary,
                               prepare_itinerary, budget_summary, render_itinerary)
 
