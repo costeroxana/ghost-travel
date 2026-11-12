@@ -22,10 +22,14 @@ class AppSecurityTests(unittest.TestCase):
         with patch('crew_loader.create_travel_crew'), contextlib.redirect_stdout(io.StringIO()):
             self.module = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.py'))
         self.app = self.module['app']
+        fetch_patch = patch('guide_index.fetch_article', return_value=None)
+        self.fetch_article = fetch_patch.start()
+        self.addCleanup(fetch_patch.stop)
         cache_directory = tempfile.TemporaryDirectory(dir=Path(__file__).parent)
         self.addCleanup(cache_directory.cleanup)
         self.app.config['ITINERARY_CACHE_PATH'] = str(Path(cache_directory.name) / 'cache.sqlite3')
         self.app.config['AGENT_METRICS_PATH'] = str(Path(cache_directory.name) / 'metrics.sqlite3')
+        self.app.config['GUIDE_INDEX_PATH'] = Path(cache_directory.name) / 'guides.sqlite3'
         self.client = self.app.test_client()
         self.crew = self.module['travel_crew'].copy.return_value
         self.crew.kickoff.side_effect = lambda inputs: crew_result(days=int(inputs['duration'].split()[0]))
@@ -62,6 +66,49 @@ class AppSecurityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Test itinerary', response.json['text_itinerary'])
         self.crew.kickoff.assert_called_once()
+
+    def test_itinerary_retrieves_guide_and_resolves_only_known_citation_ids(self):
+        self.fetch_article.side_effect = lambda title, language: (
+            ('Paris', 123, '<h2 id="Parks">Parks</h2><p>Paris has a museum garden.</p>')
+            if (title, language) == ('Paris', 'en') else None
+        )
+        result = crew_result()
+        activity = result.pydantic.days[0].activities[0]
+        activity.guide_passage_ids = [1, 1, 999]
+        self.crew.kickoff.side_effect = None
+        self.crew.kickoff.return_value = result
+        self.crew.tasks = [SimpleNamespace(name='itinerary_coordinator', description='Plan a trip')]
+        payload = {'origin': 'London', 'destination': 'Paris, France',
+                   'language': 'fr', 'preferences': 'museum garden'}
+        for cached in (False, True):
+            response = self.client.post('/api/itinerary', json=payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json['cached'], cached)
+            self.assertEqual(response.json['guide_sources'], [{
+                'day': 1, 'activity': activity.title, 'section': 'Parks',
+                'url': 'https://en.wikivoyage.org/wiki/Paris?oldid=123#Parks',
+            }])
+        self.crew.kickoff.assert_called_once()
+        self.assertIn('museum garden', self.crew.kickoff.call_args.kwargs['inputs']['guide_context'])
+        self.assertIn('{guide_context}', self.crew.tasks[0].description)
+
+    def test_preferences_reach_the_planning_tasks_and_have_separate_cache_entries(self):
+        payload = {'origin': 'London', 'destination': 'Paris'}
+        self.assertFalse(self.client.post('/api/itinerary', json=payload).json['cached'])
+        for preference in ('Visit a museum', 'Walk through a park'):
+            self.crew.tasks = [
+                SimpleNamespace(name=name, description='Original task')
+                for name in ('flight_research', 'local_research', 'itinerary_coordinator')
+            ]
+            request = {**payload, 'preferences': f'  {preference}  '}
+            self.assertFalse(self.client.post('/api/itinerary', json=request).json['cached'])
+            self.assertEqual(self.crew.kickoff.call_args.kwargs['inputs']['preferences'], preference)
+            self.assertNotIn('{preferences}', self.crew.tasks[0].description)
+            for task in self.crew.tasks[1:]:
+                self.assertIn('{preferences}', task.description)
+            self.assertTrue(self.client.post('/api/itinerary', json=request).json['cached'])
+        self.assertTrue(self.client.post('/api/itinerary', json={**payload, 'preferences': ' '}).json['cached'])
+        self.assertEqual(self.crew.kickoff.call_count, 3)
 
     def test_structured_itinerary_is_preserved_in_cache_and_response(self):
         payload = {'origin': 'London', 'destination': 'Paris'}

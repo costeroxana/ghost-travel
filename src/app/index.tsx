@@ -1,5 +1,6 @@
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/i18n";
+import { catalog } from "@/i18n/catalog";
 import { useEffect, useRef, useState } from "react";
 import {
   Keyboard,
@@ -19,6 +20,7 @@ import {
   localDate,
 } from "@/components/departure-date-picker";
 import { DestinationGallery } from "@/components/destination-photo";
+import { ExternalLink } from "@/components/external-link";
 import { ItineraryContent } from "@/components/itinerary-content";
 import { ItineraryLoader } from "@/components/itinerary-loader";
 import { ThemedText } from "@/components/themed-text";
@@ -83,6 +85,7 @@ export default function HomeScreen() {
   const [destination, setDestination] = useState("Rome, Italy");
   const [budget, setBudget] = useState("300");
   const [days, setDays] = useState("3");
+  const [preferences, setPreferences] = useState("");
   const [departureDate, setDepartureDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 1);
@@ -98,6 +101,7 @@ export default function HomeScreen() {
     days: number;
     departureDate: string;
     endDate: string;
+    guideSources: { day: number; activity: string; section: string; url: `https://${string}` }[];
   } | null>(null);
 
   const changeCity = (field: "origin" | "destination", value: string) => {
@@ -160,21 +164,28 @@ export default function HomeScreen() {
             days: tripDays,
             departure_date: departureDate,
             language,
+            preferences: preferences.trim() || undefined,
           }),
         },
       );
       const data = await response.json();
-      if (!response.ok)
-        throw new Error(
-          data.error || "Could not create your itinerary. Please try again.",
+      if (!response.ok) {
+        setError(
+          typeof data.error === "string" &&
+            Object.prototype.hasOwnProperty.call(catalog, data.error)
+            ? data.error
+            : "Could not create your itinerary. Please try again.",
         );
+        return;
+      }
       if (
         typeof data.text_itinerary !== "string" ||
         !data.text_itinerary.trim()
       ) {
-        throw new Error(
+        setError(
           "The travel service returned an empty itinerary. Please try again.",
         );
+        return;
       }
       setResultRoute({
         origin: data.origin || departure,
@@ -183,15 +194,23 @@ export default function HomeScreen() {
         days: data.days ?? tripDays,
         departureDate: data.departure_date || departureDate,
         endDate: data.end_date,
+        guideSources: Array.isArray(data.guide_sources)
+          ? data.guide_sources.filter(
+              (source: { day?: unknown; activity?: unknown; section?: unknown; url?: unknown } | null) =>
+                typeof source?.day === "number" &&
+                typeof source.activity === "string" &&
+                typeof source.section === "string" &&
+                typeof source.url === "string" &&
+                /^https:\/\/(en|ro|es|fr|de|it)\.wikivoyage\.org\/wiki\//.test(source.url),
+            )
+          : [],
       });
       setItineraryText(data.text_itinerary);
     } catch (failure) {
       setError(
         failure instanceof TypeError
           ? "Could not connect to the travel service. Please check that the backend is running."
-          : failure instanceof Error
-            ? failure.message
-            : "Something went wrong. Please try again.",
+          : "Something went wrong. Please try again.",
       );
     } finally {
       pendingLoaderScroll.current = false;
@@ -365,7 +384,7 @@ export default function HomeScreen() {
                     maxLength={9}
                     placeholderTextColor={theme.textSecondary}
                     style={[
-                      styles.numberInput,
+                      styles.tripInput,
                       {
                         color: theme.text,
                         backgroundColor: theme.background,
@@ -405,7 +424,7 @@ export default function HomeScreen() {
                     maxLength={2}
                     placeholderTextColor={theme.textSecondary}
                     style={[
-                      styles.numberInput,
+                      styles.tripInput,
                       {
                         color: theme.text,
                         backgroundColor: theme.background,
@@ -420,6 +439,30 @@ export default function HomeScreen() {
                   "Budget covers the whole trip: flights, stays, food, and activities. Choose 1–30 days.",
                 )}
               </ThemedText>
+              <View style={styles.preferencesField}>
+                <ThemedText type="smallBold">
+                  {t("What would you like to do? (optional)")}
+                </ThemedText>
+                <TextInput
+                  accessibilityLabel={t("What would you like to do? (optional)")}
+                  value={preferences}
+                  onChangeText={setPreferences}
+                  editable={!loading}
+                  multiline
+                  maxLength={1000}
+                  placeholder={t("e.g. Visit a museum and walk through a nearby park")}
+                  placeholderTextColor={theme.textSecondary}
+                  style={[
+                    styles.tripInput,
+                    styles.preferencesInput,
+                    {
+                      color: theme.text,
+                      backgroundColor: theme.background,
+                      borderColor: theme.backgroundSelected,
+                    },
+                  ]}
+                />
+              </View>
             </ThemedView>
 
             {error && (
@@ -487,6 +530,21 @@ export default function HomeScreen() {
                   key={"itinerary:" + itineraryText}
                   text={itineraryText}
                 />
+                {!!resultRoute?.guideSources.length && (
+                  <View style={styles.guideSources}>
+                    <ThemedText type="smallBold">{t("Guide sources")}</ThemedText>
+                    {resultRoute.guideSources.map(({ day, activity, section, url }, index) => (
+                      <ExternalLink key={index} href={url}>
+                        <ThemedText type="link">
+                          {t("Day {day} · {activity} · Wikivoyage: {section}", { day, activity, section })}
+                        </ThemedText>
+                      </ExternalLink>
+                    ))}
+                    <ExternalLink href="https://en.wikivoyage.org/wiki/Wikivoyage:Copyleft">
+                      <ThemedText type="link">{t("Wikivoyage contributors · CC BY-SA 4.0")}</ThemedText>
+                    </ExternalLink>
+                  </View>
+                )}
               </ThemedView>
             )}
           </ScrollView>
@@ -522,7 +580,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   settingField: { flex: 1, minWidth: 120, gap: 8 },
-  numberInput: {
+  preferencesField: { gap: 8, marginTop: 8 },
+  preferencesInput: { minHeight: 96, textAlignVertical: "top" },
+  tripInput: {
     minHeight: 52,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -566,4 +626,5 @@ const styles = StyleSheet.create({
     borderColor: "rgba(148, 163, 184, 0.2)",
   },
   resultTitle: { fontWeight: "bold", fontSize: 26 },
+  guideSources: { gap: Spacing.two },
 });

@@ -1,4 +1,192 @@
 export const catalog: Record<string, string[]> = {
+  "Guide sources": [
+    "Guide sources", "Sursele ghidului", "Fuentes de la guía", "Sources du guide",
+    "Quellen des Reiseführers", "Fonti della guida"
+  ],
+  "Day {day} · {activity} · Wikivoyage: {section}": [
+    "Day {day} · {activity} · Wikivoyage: {section}",
+    "Ziua {day} · {activity} · Wikivoyage: {section}",
+    "Día {day} · {activity} · Wikivoyage: {section}",
+    "Jour {day} · {activity} · Wikivoyage : {section}",
+    "Tag {day} · {activity} · Wikivoyage: {section}",
+    "Giorno {day} · {activity} · Wikivoyage: {section}"
+  ],
+  "Wikivoyage contributors · CC BY-SA 4.0": [
+    "Wikivoyage contributors · CC BY-SA 4.0",
+    "Contribuitorii Wikivoyage · CC BY-SA 4.0",
+    "Colaboradores de Wikivoyage · CC BY-SA 4.0",
+    "Contributeurs de Wikivoyage · CC BY-SA 4.0",
+    "Wikivoyage-Mitwirkende · CC BY-SA 4.0",
+    "Collaboratori di Wikivoyage · CC BY-SA 4.0"
+  ],
+  "Enter trip preferences as text of up to 1,000 characters.": [
+    "Enter trip preferences as text of up to 1,000 characters.",
+    "Introdu preferințele de călătorie în cel mult 1.000 de caractere.",
+    "Introduce tus preferencias de viaje en un texto de hasta 1000 caracteres.",
+    "Saisissez vos préférences de voyage en 1 000 caractères maximum.",
+    "Gib deine Reisewünsche als Text mit höchstens 1.000 Zeichen ein.",
+    "Inserisci le tue preferenze di viaggio in un testo di massimo 1.000 caratteri."
+  ],
+  "Expo Starter": [
+    "Expo Starter",
+    "Aplicație de bază Expo",
+    "Aplicación inicial de Expo",
+    "Application de démarrage Expo",
+    "Expo-Starter-App",
+    "App di base Expo"
+  ],
+  "Home": [
+    "Home",
+    "Acasă",
+    "Inicio",
+    "Accueil",
+    "Startseite",
+    "Home"
+  ],
+  "Explore": [
+    "Explore",
+    "Explorează",
+    "Explorar",
+    "Explorer",
+    "Entdecken",
+    "Esplora"
+  ],
+  "Docs": [
+    "Docs",
+    "Documentație",
+    "Documentación",
+    "Documentation",
+    "Dokumentation",
+    "Documentazione"
+  ],
+  "Expo documentation": [
+    "Expo documentation",
+    "Documentație Expo",
+    "Documentación de Expo",
+    "Documentation Expo",
+    "Expo-Dokumentation",
+    "Documentazione Expo"
+  ],
+  "Learn more": [
+    "Learn more",
+    "Află mai multe",
+    "Más información",
+    "En savoir plus",
+    "Mehr erfahren",
+    "Scopri di più"
+  ],
+  "File-based routing": [
+    "File-based routing",
+    "Rutare bazată pe fișiere",
+    "Enrutamiento basado en archivos",
+    "Routage basé sur les fichiers",
+    "Dateibasiertes Routing",
+    "Routing basato su file"
+  ],
+  "Android, iOS, and web support": [
+    "Android, iOS, and web support",
+    "Compatibilitate cu Android, iOS și web",
+    "Compatibilidad con Android, iOS y web",
+    "Compatibilité avec Android, iOS et le Web",
+    "Unterstützung für Android, iOS und Web",
+    "Supporto per Android, iOS e web"
+  ],
+  "Images": [
+    "Images",
+    "Imagini",
+    "Imágenes",
+    "Images",
+    "Bilder",
+    "Immagini"
+  ],
+  "Light and dark mode components": [
+    "Light and dark mode components",
+    "Componente pentru modurile luminos și întunecat",
+    "Componentes para los modos claro y oscuro",
+    "Composants pour les modes clair et sombre",
+    "Komponenten für den hellen und dunklen Modus",
+    "Componenti per la modalità chiara e scura"
+  ],
+  "Animations": [
+    "Animations",
+    "Animații",
+    "Animaciones",
+    "Animations",
+    "Animationen",
+    "Animazioni"
+  ],
+  "This starter app includes example code to help you get started.": [
+    "This starter app includes example code to help you get started.",
+    "Această aplicație demonstrativă include exemple de cod pentru a te ajuta să începi.",
+    "Esta aplicación inicial incluye ejemplos de código para ayudarte a empezar.",
+    "Cette application de démarrage contient des exemples de code pour vous aider à démarrer.",
+    "Diese Starter-App enthält Codebeispiele für den Einstieg.",
+    "Questa app di base include esempi di codice per aiutarti a iniziare."
+  ],
+  "This app has two screens: {home} and {explore}.": [
+    "This app has two screens: {home} and {explore}.",
+    "Aplicația are două ecrane: {home} și {explore}.",
+    "Esta aplicación tiene dos pantallas: {home} y {explore}.",
+    "Cette application comporte deux écrans : {home} et {explore}.",
+    "Diese App hat zwei Bildschirme: {home} und {explore}.",
+    "Questa app ha due schermate: {home} e {explore}."
+  ],
+  "The layout file in {layout} sets up the tab navigator.": [
+    "The layout file in {layout} sets up the tab navigator.",
+    "Fișierul {layout} configurează navigarea între file.",
+    "El archivo {layout} configura el navegador de pestañas.",
+    "Le fichier {layout} configure la navigation par onglets.",
+    "Die Layoutdatei {layout} richtet die Tab-Navigation ein.",
+    "Il file di layout {layout} configura la navigazione a schede."
+  ],
+  "You can open this project on Android, iOS, and the web. To open the web version, press {key} in the terminal running this project.": [
+    "You can open this project on Android, iOS, and the web. To open the web version, press {key} in the terminal running this project.",
+    "Poți deschide proiectul pe Android, iOS și web. Pentru versiunea web, apasă {key} în terminalul în care rulează proiectul.",
+    "Puedes abrir el proyecto en Android, iOS y la web. Para abrir la versión web, pulsa {key} en la terminal donde se ejecuta el proyecto.",
+    "Vous pouvez ouvrir ce projet sur Android, iOS et le Web. Pour ouvrir la version Web, appuyez sur {key} dans le terminal qui exécute le projet.",
+    "Du kannst dieses Projekt unter Android, iOS und im Web öffnen. Drücke für die Webversion {key} im Terminal, in dem das Projekt läuft.",
+    "Puoi aprire il progetto su Android, iOS e sul web. Per aprire la versione web, premi {key} nel terminale in cui è in esecuzione il progetto."
+  ],
+  "For static images, use the {double} and {triple} suffixes for different screen densities.": [
+    "For static images, use the {double} and {triple} suffixes for different screen densities.",
+    "Pentru imaginile statice, folosește sufixele {double} și {triple} pentru diferite densități ale ecranului.",
+    "Para las imágenes estáticas, usa los sufijos {double} y {triple} para distintas densidades de pantalla.",
+    "Pour les images statiques, utilisez les suffixes {double} et {triple} pour différentes densités d’écran.",
+    "Verwende für statische Bilder die Suffixe {double} und {triple} für unterschiedliche Pixeldichten.",
+    "Per le immagini statiche, usa i suffissi {double} e {triple} per le diverse densità dello schermo."
+  ],
+  "This template supports light and dark mode. The {hook} hook detects the current color scheme so you can adjust the interface colors.": [
+    "This template supports light and dark mode. The {hook} hook detects the current color scheme so you can adjust the interface colors.",
+    "Acest șablon acceptă modurile luminos și întunecat. Hook-ul {hook} detectează schema de culori curentă pentru a adapta culorile interfeței.",
+    "Esta plantilla admite los modos claro y oscuro. El hook {hook} detecta el esquema de color actual para adaptar los colores de la interfaz.",
+    "Ce modèle prend en charge les modes clair et sombre. Le hook {hook} détecte le thème actuel pour adapter les couleurs de l’interface.",
+    "Diese Vorlage unterstützt den hellen und dunklen Modus. Der Hook {hook} erkennt das aktuelle Farbschema, damit du die Farben der Oberfläche anpassen kannst.",
+    "Questo modello supporta la modalità chiara e scura. L’hook {hook} rileva lo schema di colori corrente per adattare i colori dell’interfaccia."
+  ],
+  "This template includes an animated component. The component in {component} uses {library} to animate this section as it opens.": [
+    "This template includes an animated component. The component in {component} uses {library} to animate this section as it opens.",
+    "Acest șablon include o componentă animată. Componenta din {component} folosește {library} pentru a anima deschiderea acestei secțiuni.",
+    "Esta plantilla incluye un componente animado. El componente de {component} usa {library} para animar la apertura de esta sección.",
+    "Ce modèle contient un composant animé. Le composant dans {component} utilise {library} pour animer l’ouverture de cette section.",
+    "Diese Vorlage enthält eine animierte Komponente. Die Komponente in {component} verwendet {library}, um das Öffnen dieses Abschnitts zu animieren.",
+    "Questo modello include un componente animato. Il componente in {component} usa {library} per animare l’apertura di questa sezione."
+  ],
+  "What would you like to do? (optional)": [
+    "What would you like to do? (optional)",
+    "Ce ai vrea să faci? (opțional)",
+    "¿Qué te gustaría hacer? (opcional)",
+    "Qu’aimeriez-vous faire ? (facultatif)",
+    "Was möchtest du unternehmen? (optional)",
+    "Cosa ti piacerebbe fare? (facoltativo)"
+  ],
+  "e.g. Visit a museum and walk through a nearby park": [
+    "e.g. Visit a museum and walk through a nearby park",
+    "De ex. Vizitează un muzeu și plimbă-te printr-un parc din apropiere",
+    "P. ej., visitar un museo y pasear por un parque cercano",
+    "P. ex. visiter un musée et se promener dans un parc à proximité",
+    "Z. B. ein Museum besuchen und in einem nahe gelegenen Park spazieren gehen",
+    "Ad es. visitare un museo e passeggiare in un parco vicino"
+  ],
   "Language": [
     "Language",
     "Limbă",

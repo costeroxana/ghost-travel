@@ -12,6 +12,19 @@ From this directory, activate a Python 3.12 virtual environment and run `python 
 
 Flask listens on `127.0.0.1:5000` by default. For a physical device on your local network, set `HOST=0.0.0.0` in the backend environment and point the Expo app's `EXPO_PUBLIC_API_URL` at the backend's LAN address.
 
+## Wikivoyage guide sources
+
+The itinerary endpoint looks up a guide for the requested destination and keeps searchable passages in a local SQLite index. It tries the requested language and can fall back to English. Itineraries can still be generated when a guide is unavailable. Supported citations appear under **Guide sources** in the app.
+
+From this directory, you can also index and search a guide before generating an itinerary.
+
+```powershell
+python guide_index.py build Bucharest
+python guide_index.py search Bucharest "Village Museum and a nearby park"
+```
+
+Guide text comes from [Wikivoyage contributors](https://www.wikivoyage.org/) under [CC BY-SA 4.0](https://en.wikivoyage.org/wiki/Wikivoyage:Copyleft). The backend stores the index as runtime data and links to the article revision used for each citation.
+
 ## Where to make changes
 
 | Path | Responsibility |

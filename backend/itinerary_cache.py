@@ -18,11 +18,15 @@ def ensure_schema(database):
         database.execute('ALTER TABLE itineraries ADD COLUMN created_at REAL NOT NULL DEFAULT 0')
 
 
-def request_key(route, budget, days, departure_date=None, language='en'):
+def request_key(route, budget, days, departure_date=None, language='en', preferences='', guide_context=''):
     # Bump the format version when generation prompts or model settings change.
-    settings = [11, bool(os.getenv('LATLNG_API_KEY', '').strip()),
+    settings = [14, bool(os.getenv('LATLNG_API_KEY', '').strip()),
                 route['origin'].casefold(), route['destination'].casefold(),
                 f'{budget.normalize():f}', days, 'EUR', departure_date, language]
+    if preferences:
+        settings.append(preferences)
+    if guide_context:
+        settings.append({'guide': guide_context})
     return hashlib.sha256(json.dumps(settings, ensure_ascii=False).encode('utf-8')).hexdigest()
 
 

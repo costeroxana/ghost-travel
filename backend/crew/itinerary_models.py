@@ -48,6 +48,7 @@ class Activity(OutputModel):
     place: str
     details: str = Field(min_length=1, description='Localized activity and travel-time advice; label uncertain estimates.')
     estimated_cost_eur: EstimatedCost | None = Field(description='Estimated activity cost in EUR, or null if unknown.')
+    guide_passage_ids: list[int] = Field(default_factory=list, description='IDs of supplied guide passages supporting this activity, or an empty list.')
 
 
 class ItineraryDay(OutputModel):
