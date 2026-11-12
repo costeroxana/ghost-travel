@@ -114,7 +114,7 @@ python -m venv .venv
 Set `OPENAI_API_KEY` and, for live museum lookup, `LATLNG_API_KEY` in `backend/.env`, then start the local development server:
 
 ```powershell
-.\.venv\Scripts\python.exe -X utf8 app.py
+.\start.cmd
 ```
 
 For physical-device testing, set `HOST=0.0.0.0` in the backend environment and
