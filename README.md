@@ -52,7 +52,7 @@ Local measurements record each task’s duration, token usage when available, an
 
 When `LATLNG_API_KEY` is configured, `find_places(city, category="museum")` geocodes the destination and requests up to five named museums within 5 km. The coordinator is instructed to schedule a returned museum. The backend credits matching activities before saving the itinerary. If the lookup is unavailable or empty, the crew can still generate a plan using general knowledge.
 
-LatLng supplies place names and coordinates. Opening hours, prices, flight routes, and availability are estimates or require independent verification. Wikimedia destination photos load through a separate Flask endpoint.
+LatLng supplies place names and coordinates. With `SERPAPI_API_KEY` and a departure date, the backend can display outbound options and prices from Google Flights. The full-trip flight budget still uses estimates. Wikimedia destination photos load through a separate Flask endpoint.
 
 ## Project structure
 
@@ -99,6 +99,7 @@ Create these files locally. Git ignores both.
 | `.env` | `EXPO_PUBLIC_API_URL` | Backend base URL used by Expo |
 | `backend/.env` | `OPENAI_API_KEY` | Model access for itinerary generation |
 | `backend/.env` | `LATLNG_API_KEY` | Live museum lookup |
+| `backend/.env` | `SERPAPI_API_KEY` | Optional dated outbound flight lookup |
 | `backend/.env` | `HOST` | Optional Flask bind address, defaults to `127.0.0.1` |
 
 ## Backend

@@ -159,9 +159,21 @@ def get_itinerary_for_app():
                 'language': language_name, 'day_label': day_label,
             }
             crew = travel_crew.copy()
+            flight_tool = next((tool for agent in crew.agents for tool in agent.tools
+                                if tool.name == 'search_flights'), None)
+            if flight_tool is not None:
+                flight_tool.set_trip(route['origin'], route['destination'], departure_date)
 
             def validate_itinerary(result):
                 plan = prepare_itinerary(parse_crew_itinerary(result), trip_days, departure_date, language_code)
+                lookup = flight_tool.result if flight_tool is not None else None
+                if lookup and lookup['status'] == 'ok':
+                    checked_at = datetime.now(ZoneInfo('Europe/Bucharest')).isoformat(timespec='minutes')
+                    plan.flights = FlightResearch(
+                        options=lookup['options'],
+                        caveat=f'Google Flights via SerpApi · Outbound only · 1 adult · {checked_at}. '
+                               'Prices may change before booking. The trip budget still uses estimates.',
+                    )
                 museum_names = {
                     name
                     for agent in crew.agents

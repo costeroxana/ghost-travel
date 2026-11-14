@@ -17,6 +17,12 @@ Create a local `.env` with your model provider credentials (such as `OPENAI_API_
 .\.venv\Scripts\python.exe -X utf8 app.py
 ```
 
+Set `SERPAPI_API_KEY` in `backend/.env` to enable Flight Hunter's
+`search_flights` tool for requests with a departure date. Chief Concierge
+can use the resulting arrival times when planning. Results cover one adult in EUR. The itinerary
+shows the lookup timestamp and keeps the AI budget estimate for the full trip.
+Cache hits reuse the saved itinerary, including any previously fetched fares.
+
 Flask listens on `127.0.0.1:5000` by default. For a physical device on your local network, set `HOST=0.0.0.0` in the backend environment and point the Expo app's `EXPO_PUBLIC_API_URL` at the backend's LAN address.
 
 ## Where to make changes
