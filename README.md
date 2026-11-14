@@ -107,14 +107,14 @@ The complete backend source is in `backend/`. Python 3.12 is the tested version.
 
 ```powershell
 cd backend
-python -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 Set `OPENAI_API_KEY` and, for live museum lookup, `LATLNG_API_KEY` in `backend/.env`, then start the local development server:
 
 ```powershell
-.\start.cmd
+.\.venv\Scripts\python.exe -X utf8 app.py
 ```
 
 For physical-device testing, set `HOST=0.0.0.0` in the backend environment and

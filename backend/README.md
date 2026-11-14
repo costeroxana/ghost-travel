@@ -4,10 +4,17 @@ The Expo app sends trip requests to Flask. Flask validates the request, checks t
 
 ## Run locally
 
-From this directory, activate a Python 3.12 virtual environment and run `python -m pip install -r requirements.txt`. Create a local `.env` with your model provider credentials (such as `OPENAI_API_KEY` for the default OpenAI provider). Set `LATLNG_API_KEY` to enable museum lookups.
+From this directory, create a Python 3.12 virtual environment and install the dependencies.
 
 ```powershell
-.\start.cmd
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Create a local `.env` with your model provider credentials (such as `OPENAI_API_KEY` for the default OpenAI provider). Set `LATLNG_API_KEY` to enable museum lookups. Then start Flask.
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 app.py
 ```
 
 Flask listens on `127.0.0.1:5000` by default. For a physical device on your local network, set `HOST=0.0.0.0` in the backend environment and point the Expo app's `EXPO_PUBLIC_API_URL` at the backend's LAN address.
