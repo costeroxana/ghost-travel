@@ -57,6 +57,18 @@ class AppSecurityTests(unittest.TestCase):
         self.assertEqual(response.json, {'photos': gallery})
         self.crew.kickoff.assert_not_called()
 
+    def test_history_reads_recent_cached_itineraries_without_generating(self):
+        self.assertEqual(self.client.get('/api/itinerary/history').json, {'trips': []})
+        generated = self.client.post('/api/itinerary', json={
+            'origin': 'London', 'destination': 'Paris', 'days': 2,
+        })
+        self.assertEqual(generated.status_code, 200)
+        history = self.client.get('/api/itinerary/history').json['trips']
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]['destination'], 'Paris')
+        self.assertEqual(history[0]['text_itinerary'], generated.json['text_itinerary'])
+        self.crew.kickoff.assert_called_once()
+
     def test_request_without_key_returns_itinerary(self):
         response = self.client.get('/api/itinerary')
         self.assertEqual(response.status_code, 200)

@@ -1,4 +1,5 @@
 import os
+import json
 import math
 import re
 import time
@@ -10,7 +11,7 @@ from threading import Lock
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
-from itinerary_cache import read_itinerary, request_key, save_itinerary
+from itinerary_cache import read_itinerary, recent_itineraries, request_key, save_itinerary
 from destination_photos import destination_photos
 from agent_metrics import measured_generation
 from crew.itinerary_models import (
@@ -56,6 +57,23 @@ def limit_generation():
         _request_times.append(now)
 
     return None
+
+@app.get('/api/itinerary/history')
+def itinerary_history():
+    trips = []
+    for key, saved, created_at, metadata in recent_itineraries(app.config['ITINERARY_CACHE_PATH']):
+        try:
+            trip = json.loads(metadata) if metadata else {}
+            plan = Itinerary.model_validate_json(saved)
+        except ValueError:
+            continue
+        budget = Decimal(trip['budget']) if 'budget' in trip else None
+        trips.append({
+            **trip, 'id': key, 'created_at': created_at,
+            'text_itinerary': render_itinerary(plan, trip.get('language', 'en'), budget),
+        })
+    return jsonify(trips=trips)
+
 
 @app.get('/api/destination-photos')
 def get_destination_photos():
@@ -188,7 +206,11 @@ def get_itinerary_for_app():
                 app.config['AGENT_METRICS_PATH'], app.logger,
             )
             try:
-                save_itinerary(cache_path, key, plan.model_dump_json())
+                save_itinerary(cache_path, key, plan.model_dump_json(), {
+                    **route, 'budget': str(trip_budget), 'days': trip_days,
+                    'departure_date': departure_date, 'end_date': end_date,
+                    'language': language_code,
+                })
             except Exception:
                 # Cache persistence is optional; still return the generated itinerary.
                 app.logger.exception('Could not save the completed itinerary to cache')

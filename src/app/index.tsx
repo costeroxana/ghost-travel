@@ -1,5 +1,6 @@
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/i18n";
+import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Keyboard,
@@ -24,6 +25,7 @@ import { ItineraryLoader } from "@/components/itinerary-loader";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { apiBaseUrl } from "@/constants/api";
 import { useTheme } from "@/hooks/use-theme";
 
 const suggestedDestinations = [
@@ -143,13 +145,8 @@ export default function HomeScreen() {
     setItineraryText(null);
     setResultRoute(null);
     try {
-      const baseUrl =
-        process.env.EXPO_PUBLIC_API_URL ||
-        (Platform.OS === "web"
-          ? "http://localhost:5000"
-          : "http://192.168.100.42:5000");
       const response = await fetch(
-        `${baseUrl.replace(/\/$/, "")}/api/itinerary`,
+        `${apiBaseUrl}/api/itinerary`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -215,14 +212,23 @@ export default function HomeScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <LanguageSwitcher
-              disabled={loading}
-              onChange={() => {
-                setItineraryText(null);
-                setResultRoute(null);
-                setError(null);
-              }}
-            />
+            <View style={styles.toolbar}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => router.push("/history")}
+                style={[styles.historyButton, { backgroundColor: theme.backgroundElement }]}
+              >
+                <ThemedText type="small">{t("History")}</ThemedText>
+              </TouchableOpacity>
+              <LanguageSwitcher
+                disabled={loading}
+                onChange={() => {
+                  setItineraryText(null);
+                  setResultRoute(null);
+                  setError(null);
+                }}
+              />
+            </View>
             <ThemedView style={styles.heroSection}>
               <ThemedText type="title" style={styles.title}>
                 Ghost Travel Agent
@@ -506,6 +512,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.three,
     paddingBottom: Spacing.four,
+  },
+  toolbar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: Spacing.two,
+  },
+  historyButton: {
+    marginTop: 8,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderRadius: 18,
   },
   heroSection: {
     alignItems: "center",
